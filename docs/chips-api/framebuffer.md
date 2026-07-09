@@ -1,32 +1,54 @@
----
-title: Framebuffer API
-sidebar_label: Framebuffer API
----
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <Servo.h>
 
-# Framebuffer API
+// ── PINES ADAPTADOS PARA NANO ─────────────────────────────────────────
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+Servo servoClasif;
 
-Use the framebuffer API to implement displays (LCD, OLED, e-paper, etc.). The display size is defined in the `.chip.json` file. The framebuffer uses 32 bits per pixel. The pixels are stored in the RGBA format. The total size of the buffer is `pixel_width * pixel_height * 4` bytes.
+const int SERVO_PIN = 9; // El Nano tiene pocos pines PWM, usa el 9
+const int TCS_S0 = 2, TCS_S1 = 3, TCS_S2 = 4, TCS_S3 = 5, TCS_OUT = 6;
+const int B2_IN1 = 7, B2_IN2 = 8, B2_EN = 10; // B2 en pines adaptados
+const int IR_B2 = A0; 
 
-### buffer_t framebuffer_init(uint32_t *pixel_width, uint32_t *pixel_height)
+// --- (El resto de las variables globales como antes) ---
+enum EstadoClasif { ESPERA, DETECTANDO, CLASIFICANDO, LIBERANDO };
+EstadoClasif estadoB2 = ESPERA;
+bool b2_on = false;
+uint8_t ultimoColor = 0;
+unsigned long timerClasif = 0;
 
-Returns the framebuffer for the current chip, and the pixel dimensions (width/height) of the frame buffer.
+void setup() {
+  Serial.begin(9600); // Bluetooth conectado a pines 0 y 1
+  servoClasif.attach(SERVO_PIN);
+  
+  pinMode(TCS_S0, OUTPUT); pinMode(TCS_S1, OUTPUT);
+  pinMode(TCS_S2, OUTPUT); pinMode(TCS_S3, OUTPUT);
+  pinMode(TCS_OUT, INPUT);
+  
+  pinMode(B2_IN1, OUTPUT); pinMode(B2_IN2, OUTPUT); pinMode(B2_EN, OUTPUT);
+  pinMode(IR_B2, INPUT);
+  
+  // Configuración TCS3200
+  digitalWrite(TCS_S0, HIGH);
+  digitalWrite(TCS_S1, LOW);
+}
 
-:::warning
+void loop() {
+  // Simplificado para Nano
+  logicaClasificacion();
+}
 
-Note: `framebuffer_init` can only be called from `chip_init()`. Do not call it at a later time.
-
-:::
-
-### void buffer_write(buffer_t buffer, uint32_t offset, void \*data, uint32_t data_len)
-
-Copies `data_len` bytes from `data` into the frame buffer, at the given `offset`.
-
-### void buffer_read(buffer_t buffer, uint32_t offset, void \*data, uint32_t data_len)
-
-Copies `data_len` bytes at the given `offset` of the frame buffer into `data`.
-
-## Simulator examples
-
-- [Basic Framebuffer Chip Example](https://wokwi.com/projects/330503863007183442)
-- [SSD1306 I2C OLED Display](https://wokwi.com/projects/371050937178768385)
-- [IL9163 128x128 Color LCD Display Driver](https://wokwi.com/projects/333332561949360723)
+void logicaClasificacion() {
+  // Lógica igual que la anterior, asegurando el control de los pines del Nano
+  switch(estadoB2) {
+    case ESPERA:
+      if(digitalRead(IR_B2) == LOW) { // IR detecta objeto
+        analogWrite(B2_EN, 0); // Detener banda
+        timerClasif = millis();
+        estadoB2 = DETECTANDO;
+      }
+      break;
+    // ... (continúa con la lógica de DETECTANDO, CLASIFICANDO, LIBERANDO)
+  }
+}
